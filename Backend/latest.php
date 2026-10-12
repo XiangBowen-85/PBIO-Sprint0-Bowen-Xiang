@@ -13,6 +13,8 @@ try {
             device_name,
             device_address,
             rssi,
+            co2_value,
+            temperature_value,
             raw_data,
             received_at
          FROM measurements

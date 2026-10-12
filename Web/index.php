@@ -75,6 +75,8 @@ try {
             device_name,
             device_address,
             rssi,
+            co2_value,
+            temperature_value,
             raw_data,
             received_at
          FROM measurements
@@ -164,11 +166,24 @@ try {
             box-shadow: 0 4px 18px rgba(0, 0, 0, 0.10);
         }
 
+        .measurements-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
         .measurement {
             padding: 28px;
             text-align: center;
             background: #145a8d;
             color: white;
+        }
+
+        .measurement-co2 {
+            background: #145a8d;    
+        }
+
+        .measurement-temperature {
+            background: #287d6b;
         }
 
         .measurement-label {
@@ -228,6 +243,10 @@ try {
             .measurement-value {
                 font-size: 44px;
             }
+            
+            .measurements-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -262,23 +281,58 @@ try {
 
         <div class="card">
 
-            <div class="measurement">
+        <div class="measurements-grid">
+
+            <div class="measurement measurement-co2">
                 <div class="measurement-label">
                     Última medida de CO₂
                 </div>
 
                 <div>
                     <span class="measurement-value">
-                        <?= $minorValue === null
+                        <?= $measurement['co2_value'] === null
                             ? 'N/D'
-                            : escapeHtml((string) $minorValue) ?>
+                            : escapeHtml(
+                                (string) $measurement['co2_value']
+                            ) ?>
                     </span>
 
-                    <?php if ($minorValue !== null): ?>
-                        <span class="measurement-unit">ppm</span>
+                    <?php if (
+                        $measurement['co2_value'] !== null
+                    ): ?>
+                        <span class="measurement-unit">
+                            ppm
+                        </span>
                     <?php endif; ?>
                 </div>
             </div>
+
+            <div class="measurement measurement-temperature">
+                <div class="measurement-label">
+                    Última medida de temperatura
+                </div>
+
+                <div>
+                    <span class="measurement-value">
+                        <?= $measurement['temperature_value'] === null
+                            ? 'N/D'
+                            : escapeHtml(
+                                (string) $measurement[
+                                    'temperature_value'
+                                ]
+                            ) ?>
+                    </span>
+
+                    <?php if (
+                        $measurement['temperature_value'] !== null
+                    ): ?>
+                        <span class="measurement-unit">
+                            °C
+                        </span>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
 
             <div class="details">
 
