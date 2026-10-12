@@ -2,40 +2,88 @@
 
 declare(strict_types=1);
 
+/**
+ * Punto de entrada HTTP para consultar
+ * las mediciones más recientes.
+ *
+ * Responsabilidades de comunicación:
+ * - comprobar el método HTTP;
+ * - solicitar los datos a la lógica de negocio;
+ * - devolver una respuesta JSON.
+ *
+ * Este archivo no contiene SQL
+ * ni reglas de validación de mediciones.
+ */
+
 require_once __DIR__ . '/config.php';
 
-try {
-    $database = getDatabase();
+require_once
+    __DIR__ . '/communication/JsonResponse.php';
 
-    $statement = $database->query(
-        'SELECT
-            id,
-            device_name,
-            device_address,
-            rssi,
-            co2_value,
-            temperature_value,
-            raw_data,
-            received_at
-         FROM measurements
-         ORDER BY id DESC
-         LIMIT 50'
-    );
+require_once
+    __DIR__ . '/database/Database.php';
 
-    sendJson([
-        'ok' => true,
-        'measurements' =>
-            $statement->fetchAll()
-    ]);
+require_once
+    __DIR__ . '/database/MeasurementRepository.php';
 
-} catch (Throwable $exception) {
-    error_log($exception->getMessage());
+require_once
+    __DIR__ . '/business/MeasurementService.php';
 
-    sendJson(
+/*
+ * Este punto de entrada solamente acepta GET.
+ */
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    JsonResponse::send(
         [
             'ok' => false,
             'error' =>
-                'Database operation failed'
+                'Only GET requests are allowed'
+        ],
+        405
+    );
+}
+
+try {
+    /*
+     * Construcción de las dependencias.
+     */
+    $database =
+        new Database();
+
+    $repository =
+        new MeasurementRepository(
+            $database->getConnection()
+        );
+
+    $service =
+        new MeasurementService(
+            $repository
+        );
+
+    /*
+     * La comunicación no conoce SQL.
+     * Solicita las mediciones a la lógica de negocio.
+     */
+    $measurements =
+        $service->getRecentMeasurements(50);
+
+    JsonResponse::send(
+        [
+            'ok' => true,
+            'measurements' => $measurements
+        ]
+    );
+
+} catch (Throwable $exception) {
+    error_log(
+        $exception->getMessage()
+    );
+
+    JsonResponse::send(
+        [
+            'ok' => false,
+            'error' =>
+                'Internal server error'
         ],
         500
     );
