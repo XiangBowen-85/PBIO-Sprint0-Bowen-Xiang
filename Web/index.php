@@ -2,53 +2,23 @@
 
 declare(strict_types=1);
 
+/**
+ * Página web de consulta de la última medición.
+ *
+ * La interfaz solicita los datos a la lógica de negocio.
+ * No realiza consultas SQL directamente.
+ */
+
 require_once __DIR__ . '/config.php';
 
-/**
- * 从 Android 保存的十六进制 BLE 字符串中提取 iBeacon minor。
- *
- * Android 的 TramaIBeacon 使用：
- * - minor[0] = byte 27
- * - minor[1] = byte 28
- *
- * @param string $rawData BLE 数据，例如 02:01:...
- * @return int|null 无法解析时返回 null
- */
-function extractMinorValue(string $rawData): ?int
-{
-    $parts = array_values(
-        array_filter(
-            explode(':', $rawData),
-            static fn(string $value): bool => $value !== ''
-        )
-    );
+require_once
+    __DIR__ . '/database/Database.php';
 
-    if (count($parts) < 29) {
-        return null;
-    }
+require_once
+    __DIR__ . '/database/MeasurementRepository.php';
 
-    if (
-        !ctype_xdigit($parts[27]) ||
-        !ctype_xdigit($parts[28])
-    ) {
-        return null;
-    }
-
-    $highByte = hexdec($parts[27]);
-    $lowByte = hexdec($parts[28]);
-
-    $value = ($highByte << 8) | $lowByte;
-
-    /*
-     * Conversión a entero con signo de 16 bits.
-     * Para CO2 normalmente será un valor positivo.
-     */
-    if ($value >= 32768) {
-        $value -= 65536;
-    }
-
-    return $value;
-}
+require_once
+    __DIR__ . '/business/MeasurementService.php';
 
 /**
  * Escapa texto antes de mostrarlo en HTML.
@@ -64,41 +34,40 @@ function escapeHtml(?string $value): string
 
 $measurement = null;
 $errorMessage = null;
-$minorValue = null;
 
 try {
-    $database = getDatabase();
+    /*
+     * Construcción de las dependencias.
+     */
+    $database =
+        new Database();
 
-    $statement = $database->query(
-        'SELECT
-            id,
-            device_name,
-            device_address,
-            rssi,
-            co2_value,
-            temperature_value,
-            raw_data,
-            received_at
-         FROM measurements
-         ORDER BY id DESC
-         LIMIT 1'
-    );
-
-    $result = $statement->fetch();
-
-    if (is_array($result)) {
-        $measurement = $result;
-        $minorValue = extractMinorValue(
-            (string) $measurement['raw_data']
+    $repository =
+        new MeasurementRepository(
+            $database->getConnection()
         );
-    }
+
+    $service =
+        new MeasurementService(
+            $repository
+        );
+
+    /*
+     * La interfaz no conoce SQL.
+     * Solicita la última medición al servicio.
+     */
+    $measurement =
+        $service->getLatestMeasurement();
 
 } catch (Throwable $exception) {
-    error_log($exception->getMessage());
+    error_log(
+        $exception->getMessage()
+    );
 
     $errorMessage =
         'No se ha podido consultar la última medición.';
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
