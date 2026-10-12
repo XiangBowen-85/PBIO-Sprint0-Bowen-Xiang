@@ -970,12 +970,31 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void botonSubirDatosPulsado(View view) {
+    public void botonSubirDatosPulsado(
+            View view
+    ) {
+        /*
+         * No se permite subir información hasta haber
+         * recibido correctamente las dos medidas.
+         */
+        if (
+                ultimoCo2 == null ||
+                        ultimaTemperatura == null
+        ) {
+            Toast.makeText(
+                    this,
+                    "Todavía no se han recibido las medidas " +
+                            "de CO2 y temperatura",
+                    Toast.LENGTH_LONG
+            ).show();
+
+            return;
+        }
 
         if (ultimosDatosXBW01 == null) {
             Toast.makeText(
                     this,
-                    "Primero debes detectar el nodo XBW01",
+                    "No hay datos BLE válidos del nodo XBW01",
                     Toast.LENGTH_LONG
             ).show();
 
@@ -991,6 +1010,8 @@ public class MainActivity extends AppCompatActivity {
                 "XBW01",
                 direccionXBW01,
                 ultimoRssi,
+                ultimoCo2,
+                ultimaTemperatura,
                 datosHex
         );
     }
@@ -999,6 +1020,8 @@ public class MainActivity extends AppCompatActivity {
             String nombre,
             String direccion,
             int rssi,
+            int co2,
+            int temperatura,
             String datosHex
     ) {
 
@@ -1075,6 +1098,16 @@ public class MainActivity extends AppCompatActivity {
                 json.put(
                         "rssi",
                         rssi
+                );
+
+                json.put(
+                        "co2_value",
+                        co2
+                );
+
+                json.put(
+                        "temperature_value",
+                        temperatura
                 );
 
                 json.put(

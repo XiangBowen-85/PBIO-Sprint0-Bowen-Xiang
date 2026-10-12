@@ -86,6 +86,51 @@ $rssi = filter_var(
 );
 
 /*
+ * Medida de CO2 ya decodificada por Android.
+ */
+$co2Value = filter_var(
+    $data['co2_value'] ?? null,
+    FILTER_VALIDATE_INT
+);
+
+/*
+ * Temperatura ya decodificada por Android.
+ */
+$temperatureValue = filter_var(
+    $data['temperature_value'] ?? null,
+    FILTER_VALIDATE_INT
+);
+
+/*
+ * El valor de CO2 debe ser un número entero.
+ */
+if ($co2Value === false) {
+    sendJson(
+        [
+            'ok' => false,
+            'error' =>
+                'co2_value must be an integer'
+        ],
+        400
+    );
+}
+
+/*
+ * La temperatura debe ser un número entero.
+ * Se permiten valores negativos.
+ */
+if ($temperatureValue === false) {
+    sendJson(
+        [
+            'ok' => false,
+            'error' =>
+                'temperature_value must be an integer'
+        ],
+        400
+    );
+}
+
+/*
  * 检查设备名称。
  */
 if ($deviceName === '') {
@@ -136,34 +181,44 @@ try {
     $database = getDatabase();
 
     $statement = $database->prepare(
-        'INSERT INTO measurements (
-            device_name,
-            device_address,
-            rssi,
-            raw_data
-         ) VALUES (
-            :device_name,
-            :device_address,
-            :rssi,
-            :raw_data
-         )'
-    );
+    'INSERT INTO measurements (
+        device_name,
+        device_address,
+        rssi,
+        co2_value,
+        temperature_value,
+        raw_data
+     ) VALUES (
+        :device_name,
+        :device_address,
+        :rssi,
+        :co2_value,
+        :temperature_value,
+        :raw_data
+     )'
+);
 
     $statement->execute([
-        ':device_name' =>
-            $deviceName,
+    ':device_name' =>
+        $deviceName,
 
-        ':device_address' =>
-            $deviceAddress === ''
-                ? null
-                : $deviceAddress,
+    ':device_address' =>
+        $deviceAddress === ''
+            ? null
+            : $deviceAddress,
 
-        ':rssi' =>
-            $rssi,
+    ':rssi' =>
+        $rssi,
 
-        ':raw_data' =>
-            strtoupper($rawData)
-    ]);
+    ':co2_value' =>
+        $co2Value,
+
+    ':temperature_value' =>
+        $temperatureValue,
+
+    ':raw_data' =>
+        strtoupper($rawData)
+]);
 
     sendJson([
         'ok' => true,
