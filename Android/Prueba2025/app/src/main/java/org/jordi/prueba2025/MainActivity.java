@@ -1,21 +1,18 @@
 package org.jordi.prueba2025;
 
-import android.bluetooth.le.ScanSettings;
-import android.os.Build;
-import android.support.v7.app.AppCompatActivity;
-
-import android.support.v4.content.ContextCompat;
-import android.support.v4.app.ActivityCompat;
-
-import android.os.Bundle;
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -447,198 +444,7 @@ public class MainActivity extends AppCompatActivity {
 
     // --------------------------------------------------------------
     // --------------------------------------------------------------
-    private void mostrarInformacionDispositivoBTLE(ScanResult resultado) {
 
-        Log.d(ETIQUETA_LOG, " mostrarInformacionDispositivoBTLLE(): empieza ");
-
-        BluetoothDevice bluetoothDevice = resultado.getDevice();
-        byte[] bytes = resultado.getScanRecord().getBytes();
-        int rssi = resultado.getRssi();
-
-        Log.d(ETIQUETA_LOG, "                                                     ");
-        Log.d(ETIQUETA_LOG, "                                                     ");
-        Log.d(ETIQUETA_LOG, " ****************************************************");
-        Log.d(ETIQUETA_LOG, " ****** DISPOSITIVO DETECTADO BTLE ****************** ");
-        Log.d(ETIQUETA_LOG, " ****************************************************");
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            Log.d(ETIQUETA_LOG, " mostrarInformacionDispositivoBTLLE(): no tengo el permiso BLUETOOTH_CONNECT ");
-            return;
-        }
-        Log.d(ETIQUETA_LOG, " nombre = " + bluetoothDevice.getName());
-        Log.d(ETIQUETA_LOG, " toString = " + bluetoothDevice.toString());
-
-        /*
-        ParcelUuid[] puuids = bluetoothDevice.getUuids();
-        if ( puuids.length >= 1 ) {
-            //Log.d(ETIQUETA_LOG, " uuid = " + puuids[0].getUuid());
-           // Log.d(ETIQUETA_LOG, " uuid = " + puuids[0].toString());
-        }*/
-
-        Log.d(ETIQUETA_LOG, " dirección = " + bluetoothDevice.getAddress());
-        Log.d(ETIQUETA_LOG, " rssi = " + rssi);
-
-        Log.d(ETIQUETA_LOG, " bytes = " + new String(bytes));
-        Log.d(ETIQUETA_LOG, " bytes (" + bytes.length + ") = " + Utilidades.bytesToHexString(bytes));
-
-        TramaIBeacon tib = new TramaIBeacon(bytes);
-
-        Log.d(ETIQUETA_LOG, " ----------------------------------------------------");
-        Log.d(ETIQUETA_LOG, " prefijo  = " + Utilidades.bytesToHexString(tib.getPrefijo()));
-        Log.d(ETIQUETA_LOG, "          advFlags = " + Utilidades.bytesToHexString(tib.getAdvFlags()));
-        Log.d(ETIQUETA_LOG, "          advHeader = " + Utilidades.bytesToHexString(tib.getAdvHeader()));
-        Log.d(ETIQUETA_LOG, "          companyID = " + Utilidades.bytesToHexString(tib.getCompanyID()));
-        Log.d(ETIQUETA_LOG, "          iBeacon type = " + Integer.toHexString(tib.getiBeaconType()));
-        Log.d(ETIQUETA_LOG, "          iBeacon length 0x = " + Integer.toHexString(tib.getiBeaconLength()) + " ( "
-                + tib.getiBeaconLength() + " ) ");
-        Log.d(ETIQUETA_LOG, " uuid  = " + Utilidades.bytesToHexString(tib.getUUID()));
-        Log.d(ETIQUETA_LOG, " uuid  = " + Utilidades.bytesToString(tib.getUUID()));
-        Log.d(ETIQUETA_LOG, " major  = " + Utilidades.bytesToHexString(tib.getMajor()) + "( "
-                + Utilidades.bytesToInt(tib.getMajor()) + " ) ");
-        Log.d(ETIQUETA_LOG, " minor  = " + Utilidades.bytesToHexString(tib.getMinor()) + "( "
-                + Utilidades.bytesToInt(tib.getMinor()) + " ) ");
-        Log.d(ETIQUETA_LOG, " txPower  = " + Integer.toHexString(tib.getTxPower()) + " ( " + tib.getTxPower() + " )");
-        Log.d(ETIQUETA_LOG, " ****************************************************");
-
-    } // ()
-
-    // --------------------------------------------------------------
-    // --------------------------------------------------------------
-    private void buscarEsteDispositivoBTLE(final String dispositivoBuscado) {
-        Log.d(ETIQUETA_LOG, " buscarEsteDispositivoBTLE(): empieza ");
-
-        if (this.elEscanner == null) {
-
-            Toast.makeText(
-                    this,
-                    "El escáner BLE no está preparado",
-                    Toast.LENGTH_LONG
-            ).show();
-
-            comprobarPermisosBluetooth();
-            return;
-        }
-
-        Log.d(ETIQUETA_LOG, " buscarEsteDispositivoBTLE(): buscando " + dispositivoBuscado);
-
-        Log.d(ETIQUETA_LOG, "  buscarEsteDispositivoBTLE(): instalamos scan callback ");
-
-
-        // super.onScanResult(ScanSettings.SCAN_MODE_LOW_LATENCY, result); para ahorro de energía
-
-        this.callbackDelEscaneo = new ScanCallback() {
-            @Override
-            public void onScanResult(int callbackType, ScanResult resultado) {
-                super.onScanResult(callbackType, resultado);
-                Log.d(ETIQUETA_LOG, "  buscarEsteDispositivoBTLE(): onScanResult() ");
-
-                String nombre = null;
-
-                if (resultado.getScanRecord() != null) {
-                    nombre = resultado.getScanRecord().getDeviceName();
-                }
-
-                if (
-                        nombre == null &&
-                                ActivityCompat.checkSelfPermission(
-                                        MainActivity.this,
-                                        Manifest.permission.BLUETOOTH_CONNECT
-                                ) == PackageManager.PERMISSION_GRANTED
-                ) {
-                    nombre = resultado.getDevice().getName();
-                }
-
-                Log.d(
-                        ETIQUETA_LOG,
-                        "Dispositivo encontrado: " +
-                                nombre +
-                                " RSSI: " +
-                                resultado.getRssi()
-                );
-
-                if ("XBW01".equals(nombre)) {
-
-                    Toast.makeText(
-                            MainActivity.this,
-                            "Encontrado XBW01, RSSI: " + resultado.getRssi(),
-                            Toast.LENGTH_LONG
-                    ).show();
-
-                    //mostrarInformacionDispositivoBTLE(resultado);
-                }
-            }
-
-            @Override
-            public void onBatchScanResults(List<ScanResult> results) {
-                super.onBatchScanResults(results);
-//                Log.d(ETIQUETA_LOG, "  buscarEsteDispositivoBTLE(): onBatchScanResults() ");
-
-            }
-
-            @Override
-            public void onScanFailed(int errorCode) {
-                super.onScanFailed(errorCode);
-
-                Log.e(
-                        ETIQUETA_LOG,
-                        "buscarTodosLosDispositivosBTLE(): " +
-                                "onScanFailed(), codigo=" +
-                                errorCode
-                );
-
-                Toast.makeText(
-                        MainActivity.this,
-                        "Error de escaneo BLE: " + errorCode,
-                        Toast.LENGTH_LONG
-                ).show();
-            }
-        };
-
-        ScanFilter sf = new ScanFilter.Builder().setDeviceName(dispositivoBuscado).build();
-
-        Log.d(ETIQUETA_LOG, "  buscarEsteDispositivoBTLE(): empezamos a escanear buscando: " + dispositivoBuscado);
-        //Log.d(ETIQUETA_LOG, "  buscarEsteDispositivoBTLE(): empezamos a escanear buscando: " + dispositivoBuscado
-        //      + " -> " + Utilidades.stringToUUID( dispositivoBuscado ) );
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
-        }
-
-        Log.d(ETIQUETA_LOG, " buscarEsteDispositivoBTLE(): empieztar scan");
-
-        ScanSettings settings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
-
-        ArrayList<ScanFilter> filtros = new ArrayList<ScanFilter>();
-        filtros.add( sf );
-
-
-        // ANTES this.elEscanner.startScan( this.callbackDelEscaneo);
-
-        // AHORA (2025)
-        this.elEscanner.startScan(
-                filtros,
-                settings,
-                this.callbackDelEscaneo
-        );
-
-        Log.d(ETIQUETA_LOG, " buscarEsteDispositivoBTLE(): termina");
-    } // ()
-
-    // --------------------------------------------------------------
-    // --------------------------------------------------------------
     private void detenerBusquedaDispositivosBTLE() {
 
         Log.d(ETIQUETA_LOG, " detenerBusquedaDispositivosBTLE(): empieza");
