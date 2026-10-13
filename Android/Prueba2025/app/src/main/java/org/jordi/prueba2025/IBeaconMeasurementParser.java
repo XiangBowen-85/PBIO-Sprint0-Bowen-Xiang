@@ -36,7 +36,7 @@ public final class IBeaconMeasurementParser {
     private static final int MINOR_INDEX = 20;
 
     private static final byte[] EXPECTED_UUID =
-            "EPSG-GTI-PROY-3A"
+            "BOWEN-XBW01-2026"
                     .getBytes(StandardCharsets.UTF_8);
 
     /**

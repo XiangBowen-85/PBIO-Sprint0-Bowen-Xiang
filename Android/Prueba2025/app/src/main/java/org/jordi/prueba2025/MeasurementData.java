@@ -97,4 +97,16 @@ public final class MeasurementData {
     ) {
         this.rawData = rawData;
     }
+
+    /**
+     * Indica si el modelo contiene toda la información
+     * necesaria para enviarse al backend.
+     */
+    public boolean isReadyToUpload() {
+        return
+                this.co2Value != null &&
+                        this.temperatureValue != null &&
+                        this.rawData != null &&
+                        !this.rawData.isEmpty();
+    }
 }

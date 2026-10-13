@@ -16,25 +16,12 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.content.pm.PackageManager;
-import android.os.ParcelUuid;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
-
-import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.URL;
-
-import javax.net.ssl.HttpsURLConnection;
-
 
 public class MainActivity extends AppCompatActivity {
 
@@ -67,6 +54,13 @@ public class MainActivity extends AppCompatActivity {
             measurementController =
             new MeasurementController("XBW01");
 
+    /**
+     * Cliente de comunicación separado
+     * de la interfaz gráfica.
+     */
+    private final PleskClient
+            pleskClient =
+            new PleskClient();
     private void buscarTodosLosDispositivosBTLE() {
         Log.d(ETIQUETA_LOG, " buscarTodosLosDispositivosBTL(): empieza ");
         /*
@@ -304,22 +298,24 @@ public class MainActivity extends AppCompatActivity {
                 (byte) 0x02,
                 (byte) 0x15,
 
-                (byte) 'E',
-                (byte) 'P',
-                (byte) 'S',
-                (byte) 'G',
-                (byte) '-',
-                (byte) 'G',
-                (byte) 'T',
-                (byte) 'I',
-                (byte) '-',
-                (byte) 'P',
-                (byte) 'R',
+                (byte) 'B',
                 (byte) 'O',
-                (byte) 'Y',
+                (byte) 'W',
+                (byte) 'E',
+                (byte) 'N',
                 (byte) '-',
-                (byte) '3',
-                (byte) 'A'
+
+                (byte) 'X',
+                (byte) 'B',
+                (byte) 'W',
+                (byte) '0',
+                (byte) '1',
+                (byte) '-',
+
+                (byte) '2',
+                (byte) '0',
+                (byte) '2',
+                (byte) '6'
         };
 
         /*
@@ -958,16 +954,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Gestiona la pulsación del botón de subida.
+     *
+     * MainActivity solamente:
+     *
+     * - comprueba el estado mediante el controlador;
+     * - llama al cliente de comunicación;
+     * - muestra el resultado en la interfaz.
+     */
     public void botonSubirDatosPulsado(
             View view
     ) {
-        /*
-         * No se permite subir información hasta haber
-         * recibido correctamente las dos medidas.
-         */
         if (
-                ultimoCo2 == null ||
-                        ultimaTemperatura == null
+                !measurementController
+                        .isReadyToUpload()
         ) {
             Toast.makeText(
                     this,
@@ -979,39 +980,9 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        if (ultimosDatosXBW01 == null) {
-            Toast.makeText(
-                    this,
-                    "No hay datos BLE válidos del nodo XBW01",
-                    Toast.LENGTH_LONG
-            ).show();
-
-            return;
-        }
-
-        String datosHex =
-                Utilidades.bytesToHexString(
-                        ultimosDatosXBW01
-                );
-
-        subirDatosAPlesk(
-                "XBW01",
-                direccionXBW01,
-                ultimoRssi,
-                ultimoCo2,
-                ultimaTemperatura,
-                datosHex
-        );
-    }
-
-    private void subirDatosAPlesk(
-            String nombre,
-            String direccion,
-            int rssi,
-            int co2,
-            int temperatura,
-            String datosHex
-    ) {
+        MeasurementData measurementData =
+                measurementController
+                        .getMeasurementData();
 
         Toast.makeText(
                 this,
@@ -1019,260 +990,89 @@ public class MainActivity extends AppCompatActivity {
                 Toast.LENGTH_SHORT
         ).show();
 
-        /*
-         * Android 不允许在主界面线程中执行网络请求，
-         * 所以使用一个新的工作线程。
-         */
-        new Thread(() -> {
+        pleskClient.uploadMeasurement(
+                measurementData,
+                new PleskClient.UploadCallback() {
 
-            HttpsURLConnection conexion = null;
-
-            try {
-                /*
-                 * Dirección del punto de entrada PHP.
-                 */
-                URL url = new URL(
-                        "https://bxiang.upv.edu.es/api/upload.php"
-                );
-
-                conexion =
-                        (HttpsURLConnection) url.openConnection();
-
-                /*
-                 * Configuración de la petición HTTP.
-                 */
-                conexion.setRequestMethod("POST");
-                conexion.setConnectTimeout(10000);
-                conexion.setReadTimeout(10000);
-                conexion.setDoOutput(true);
-
-                conexion.setRequestProperty(
-                        "Content-Type",
-                        "application/json; charset=UTF-8"
-                );
-
-                conexion.setRequestProperty(
-                        "Accept",
-                        "application/json"
-                );
-
-                /*
-                 * IMPORTANTE:
-                 * Sustituye el texto por la misma API Key
-                 * configurada en config.php.
-                 */
-                conexion.setRequestProperty(
-                        "X-API-Key",
-                        "XBW01_SPRINT0"
-                );
-
-                /*
-                 * Construcción del JSON que se enviará al servidor.
-                 */
-                JSONObject json = new JSONObject();
-
-                json.put(
-                        "device_name",
-                        nombre
-                );
-
-                json.put(
-                        "device_address",
-                        direccion == null
-                                ? ""
-                                : direccion
-                );
-
-                json.put(
-                        "rssi",
-                        rssi
-                );
-
-                json.put(
-                        "co2_value",
-                        co2
-                );
-
-                json.put(
-                        "temperature_value",
-                        temperatura
-                );
-
-                json.put(
-                        "raw_data",
-                        datosHex
-                );
-
-                String jsonTexto =
-                        json.toString();
-
-                Log.d(
-                        ETIQUETA_LOG,
-                        "JSON enviado a Plesk: " +
-                                jsonTexto
-                );
-
-                /*
-                 * Escritura del cuerpo JSON.
-                 */
-                byte[] cuerpo =
-                        jsonTexto.getBytes("UTF-8");
-
-                conexion.setFixedLengthStreamingMode(
-                        cuerpo.length
-                );
-
-                try (
-                        OutputStream salida =
-                                conexion.getOutputStream()
-                ) {
-                    salida.write(cuerpo);
-                    salida.flush();
-                }
-
-                /*
-                 * Lectura del código HTTP.
-                 */
-                int codigoRespuesta =
-                        conexion.getResponseCode();
-
-                /*
-                 * Para respuestas 2xx se utiliza inputStream.
-                 * Para errores 4xx o 5xx se utiliza errorStream.
-                 */
-                InputStream entrada;
-
-                if (
-                        codigoRespuesta >= 200 &&
-                                codigoRespuesta < 300
-                ) {
-                    entrada =
-                            conexion.getInputStream();
-                } else {
-                    entrada =
-                            conexion.getErrorStream();
-                }
-
-                String respuesta =
-                        leerRespuestaServidor(entrada);
-
-                Log.d(
-                        ETIQUETA_LOG,
-                        "Código HTTP: " +
-                                codigoRespuesta
-                );
-
-                Log.d(
-                        ETIQUETA_LOG,
-                        "Respuesta Plesk: " +
-                                respuesta
-                );
-
-                /*
-                 * Volvemos al hilo de la interfaz para mostrar
-                 * el resultado mediante Toast.
-                 */
-                int codigoFinal = codigoRespuesta;
-                String respuestaFinal = respuesta;
-
-                runOnUiThread(() -> {
-
-                    if (
-                            codigoFinal >= 200 &&
-                                    codigoFinal < 300
+                    @Override
+                    public void onSuccess(
+                            UploadResult result
                     ) {
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Datos guardados en Plesk",
-                                Toast.LENGTH_LONG
-                        ).show();
+                        /*
+                         * El callback se ejecuta en un hilo
+                         * de trabajo. Volvemos al hilo de UI.
+                         */
+                        runOnUiThread(() -> {
+                            Log.d(
+                                    ETIQUETA_LOG,
+                                    "Código HTTP: " +
+                                            result.getStatusCode()
+                            );
 
-                        Log.d(
-                                ETIQUETA_LOG,
-                                "SUBIDA CORRECTA: " +
-                                        respuestaFinal
-                        );
+                            Log.d(
+                                    ETIQUETA_LOG,
+                                    "Respuesta Plesk: " +
+                                            result.getResponseBody()
+                            );
 
-                    } else {
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Error del servidor: " +
-                                        codigoFinal,
-                                Toast.LENGTH_LONG
-                        ).show();
+                            if (result.isSuccessful()) {
+                                Toast.makeText(
+                                        MainActivity.this,
+                                        "Datos guardados en Plesk",
+                                        Toast.LENGTH_LONG
+                                ).show();
 
-                        Log.e(
-                                ETIQUETA_LOG,
-                                "ERROR DEL SERVIDOR: " +
-                                        respuestaFinal
-                        );
+                                Log.d(
+                                        ETIQUETA_LOG,
+                                        "SUBIDA CORRECTA: " +
+                                                result.getResponseBody()
+                                );
+
+                            } else {
+                                Toast.makeText(
+                                        MainActivity.this,
+                                        "Error del servidor: " +
+                                                result.getStatusCode(),
+                                        Toast.LENGTH_LONG
+                                ).show();
+
+                                Log.e(
+                                        ETIQUETA_LOG,
+                                        "ERROR DEL SERVIDOR: " +
+                                                result.getResponseBody()
+                                );
+                            }
+                        });
                     }
-                });
 
-            } catch (Exception excepcion) {
+                    @Override
+                    public void onError(
+                            Exception exception
+                    ) {
+                        runOnUiThread(() -> {
+                            String errorMessage =
+                                    exception
+                                            .getClass()
+                                            .getSimpleName() +
+                                            ": " +
+                                            exception.getMessage();
 
-                Log.e(
-                        ETIQUETA_LOG,
-                        "Error al subir datos a Plesk",
-                        excepcion
-                );
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "Error de conexión: " +
+                                            errorMessage,
+                                    Toast.LENGTH_LONG
+                            ).show();
 
-                String mensajeError =
-                        excepcion.getClass()
-                                .getSimpleName() +
-                                ": " +
-                                excepcion.getMessage();
-
-                runOnUiThread(() ->
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Error de conexión: " +
-                                        mensajeError,
-                                Toast.LENGTH_LONG
-                        ).show()
-                );
-
-            } finally {
-
-                if (conexion != null) {
-                    conexion.disconnect();
+                            Log.e(
+                                    ETIQUETA_LOG,
+                                    "Error al subir datos a Plesk",
+                                    exception
+                            );
+                        });
+                    }
                 }
-            }
-
-        }).start();
+        );
     }
-    private String leerRespuestaServidor(
-            InputStream entrada
-    ) throws Exception {
-
-        if (entrada == null) {
-            return "";
-        }
-
-        StringBuilder respuesta =
-                new StringBuilder();
-
-        try (
-                BufferedReader lector =
-                        new BufferedReader(
-                                new InputStreamReader(
-                                        entrada,
-                                        "UTF-8"
-                                )
-                        )
-        ) {
-            String linea;
-
-            while (
-                    (linea = lector.readLine()) != null
-            ) {
-                respuesta.append(linea);
-            }
-        }
-
-        return respuesta.toString();
-    }
-
-
 
 } // class

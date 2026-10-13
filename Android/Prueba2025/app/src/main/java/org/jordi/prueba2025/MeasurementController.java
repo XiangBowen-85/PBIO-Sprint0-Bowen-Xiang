@@ -65,6 +65,6 @@ public final class MeasurementController {
     public boolean isReadyToUpload() {
         return
                 this.measurementData
-                        .hasCompleteMeasurement();
+                        .isReadyToUpload();
     }
 }
