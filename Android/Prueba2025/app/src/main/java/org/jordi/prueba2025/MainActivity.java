@@ -56,6 +56,17 @@ public class MainActivity extends AppCompatActivity {
 
     private Integer ultimaTemperatura = null;
 
+    /*
+     * Servicios y modelo separados de la interfaz gráfica.
+     */
+    private final IBeaconMeasurementParser
+            measurementParser =
+            new IBeaconMeasurementParser();
+
+    private final MeasurementData
+            currentMeasurement =
+            new MeasurementData("XBW01");
+
     private void buscarTodosLosDispositivosBTLE() {
         Log.d(ETIQUETA_LOG, " buscarTodosLosDispositivosBTL(): empieza ");
         /*
@@ -79,6 +90,8 @@ public class MainActivity extends AppCompatActivity {
         ultimoRssi = 0;
         ultimoCo2 = null;
         ultimaTemperatura = null;
+
+        currentMeasurement.reset();
 
         if (this.elEscanner == null) {
 
@@ -146,10 +159,29 @@ public class MainActivity extends AppCompatActivity {
                 ultimoRssi =
                         resultado.getRssi();
 
+                String rawDataHex =
+                        Utilidades.bytesToHexString(
+                                resultado
+                                        .getScanRecord()
+                                        .getBytes()
+                        );
+
                 ultimosDatosXBW01 =
                         resultado
                                 .getScanRecord()
                                 .getBytes();
+
+                /*
+                 * El modelo guarda los datos necesarios,
+                 * independientemente de la interfaz.
+                 */
+                currentMeasurement.setRssi(
+                        ultimoRssi
+                );
+
+                currentMeasurement.setRawData(
+                        rawDataHex
+                );
 
                 if (
                         ActivityCompat.checkSelfPermission(
@@ -161,6 +193,10 @@ public class MainActivity extends AppCompatActivity {
                             resultado
                                     .getDevice()
                                     .getAddress();
+
+                    currentMeasurement.setDeviceAddress(
+                            direccionXBW01
+                    );
                 }
 
                 /*
@@ -316,6 +352,13 @@ public class MainActivity extends AppCompatActivity {
         Log.d(ETIQUETA_LOG, " buscarTodosLosDispositivosBTL(): termina ");
     } // ()
 
+    /**
+     * Delega la interpretación de la trama
+     * en IBeaconMeasurementParser.
+     *
+     * MainActivity solamente coordina el resultado
+     * con el modelo y la interfaz gráfica.
+     */
     private void procesarAnuncioIBeacon(
             ScanResult resultado
     ) {
@@ -326,138 +369,82 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        byte[] datosFabricante =
+        byte[] manufacturerData =
                 resultado
                         .getScanRecord()
-                        .getManufacturerSpecificData(0x004c);
+                        .getManufacturerSpecificData(
+                                0x004c
+                        );
 
-        if (
-                datosFabricante == null ||
-                        datosFabricante.length < 23
-        ) {
-            Log.d(
-                    ETIQUETA_LOG,
-                    "Anuncio sin datos iBeacon válidos"
+        try {
+            ParsedMeasurement parsedMeasurement =
+                    this.measurementParser.parse(
+                            manufacturerData
+                    );
+
+            /*
+             * La lógica de actualización de las medidas
+             * se delega en el modelo.
+             */
+            this.currentMeasurement.applyMeasurement(
+                    parsedMeasurement
             );
 
-            return;
-        }
+            /*
+             * Estos dos atributos se mantienen temporalmente
+             * para no modificar todavía la subida a Plesk.
+             */
+            this.ultimoCo2 =
+                    this.currentMeasurement
+                            .getCo2Value();
 
-        Log.d(
-                ETIQUETA_LOG,
-                "Longitud manufacturer data = " +
-                        datosFabricante.length
-        );
-
-        /*
-         * Formato esperado:
-         *
-         * 02 15
-         * UUID: 16 bytes
-         * major: 2 bytes
-         * minor: 2 bytes
-         * txPower: 1 byte
-         */
-        if (
-                (datosFabricante[0] & 0xFF) != 0x02 ||
-                        (datosFabricante[1] & 0xFF) != 0x15
-        ) {
-            Log.d(
-                    ETIQUETA_LOG,
-                    "Los datos del fabricante no tienen formato iBeacon"
-            );
-
-            return;
-        }
-
-        int indiceMajor = 18;
-        int indiceMinor = 20;
-
-        int major =
-                ((datosFabricante[indiceMajor] & 0xFF) << 8) |
-                        (datosFabricante[indiceMajor + 1] & 0xFF);
-
-        int minorSinSigno =
-                ((datosFabricante[indiceMinor] & 0xFF) << 8) |
-                        (datosFabricante[indiceMinor + 1] & 0xFF);
-
-        /*
-         * Conversión a entero de 16 bits con signo.
-         *
-         * Es necesaria porque la temperatura puede ser negativa,
-         * por ejemplo -12.
-         */
-        short valorMedida =
-                (short) minorSinSigno;
-
-        int tipoMedida =
-                (major >> 8) & 0xFF;
-
-        int contador =
-                major & 0xFF;
-
-        Log.d(
-                ETIQUETA_LOG,
-                "Tipo de medida = " + tipoMedida
-        );
-
-        Log.d(
-                ETIQUETA_LOG,
-                "Contador = " + contador
-        );
-
-        Log.d(
-                ETIQUETA_LOG,
-                "Valor decodificado = " + valorMedida
-        );
-
-        if (tipoMedida == 11) {
-            ultimoCo2 =
-                    (int) valorMedida;
+            this.ultimaTemperatura =
+                    this.currentMeasurement
+                            .getTemperatureValue();
 
             Log.d(
                     ETIQUETA_LOG,
-                    "CO2 recibido = " +
-                            ultimoCo2 +
-                            " ppm"
+                    "Tipo de medida = " +
+                            parsedMeasurement.getType()
             );
-
-        } else if (tipoMedida == 12) {
-            ultimaTemperatura =
-                    (int) valorMedida;
 
             Log.d(
                     ETIQUETA_LOG,
-                    "Temperatura recibida = " +
-                            ultimaTemperatura +
-                            " grados"
+                    "Contador = " +
+                            parsedMeasurement.getCounter()
             );
 
-        } else {
             Log.d(
                     ETIQUETA_LOG,
-                    "Tipo de medida desconocido = " +
-                            tipoMedida
+                    "Valor decodificado = " +
+                            parsedMeasurement.getValue()
             );
-        }
 
-        /*
-         * Cuando ya hemos recibido las dos medidas,
-         * podemos informar al usuario.
-         */
-        if (
-                ultimoCo2 != null &&
-                        ultimaTemperatura != null
-        ) {
-            Toast.makeText(
-                    MainActivity.this,
-                    "Medidas recibidas: CO2 = " +
-                            ultimoCo2 +
-                            " ppm, temperatura = " +
-                            ultimaTemperatura +
-                            " °C",
-                    Toast.LENGTH_LONG
-            ).show();
+            if (parsedMeasurement.isCo2()) {
+                Log.d(
+                        ETIQUETA_LOG,
+                        "CO2 recibido = " +
+                                parsedMeasurement.getValue() +
+                                " ppm"
+                );
+
+            } else if (
+                    parsedMeasurement.isTemperature()
+            ) {
+                Log.d(
+                        ETIQUETA_LOG,
+                        "Temperatura recibida = " +
+                                parsedMeasurement.getValue() +
+                                " grados"
+                );
+            }
+
+        } catch (IllegalArgumentException exception) {
+            Log.d(
+                    ETIQUETA_LOG,
+                    "Anuncio iBeacon ignorado: " +
+                            exception.getMessage()
+            );
         }
     }
 
