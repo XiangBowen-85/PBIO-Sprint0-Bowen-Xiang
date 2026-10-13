@@ -59,13 +59,13 @@ public class MainActivity extends AppCompatActivity {
     /*
      * Servicios y modelo separados de la interfaz gráfica.
      */
-    private final IBeaconMeasurementParser
-            measurementParser =
-            new IBeaconMeasurementParser();
-
-    private final MeasurementData
-            currentMeasurement =
-            new MeasurementData("XBW01");
+    /**
+     * Controlador de la lógica de negocio
+     * de las mediciones.
+     */
+    private final MeasurementController
+            measurementController =
+            new MeasurementController("XBW01");
 
     private void buscarTodosLosDispositivosBTLE() {
         Log.d(ETIQUETA_LOG, " buscarTodosLosDispositivosBTL(): empieza ");
@@ -91,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
         ultimoCo2 = null;
         ultimaTemperatura = null;
 
-        currentMeasurement.reset();
+        measurementController.reset();
 
         if (this.elEscanner == null) {
 
@@ -175,11 +175,15 @@ public class MainActivity extends AppCompatActivity {
                  * El modelo guarda los datos necesarios,
                  * independientemente de la interfaz.
                  */
-                currentMeasurement.setRssi(
+                MeasurementData measurementData =
+                        measurementController
+                                .getMeasurementData();
+
+                measurementData.setRssi(
                         ultimoRssi
                 );
 
-                currentMeasurement.setRawData(
+                measurementData.setRawData(
                         rawDataHex
                 );
 
@@ -194,9 +198,11 @@ public class MainActivity extends AppCompatActivity {
                                     .getDevice()
                                     .getAddress();
 
-                    currentMeasurement.setDeviceAddress(
-                            direccionXBW01
-                    );
+                    measurementController
+                            .getMeasurementData()
+                            .setDeviceAddress(
+                                    direccionXBW01
+                            );
                 }
 
                 /*
@@ -219,8 +225,8 @@ public class MainActivity extends AppCompatActivity {
                  * Detenemos el escaneo cuando ya tenemos las dos.
                  */
                 if (
-                        ultimoCo2 != null &&
-                                ultimaTemperatura != null
+                        measurementController
+                                .isReadyToUpload()
                 ) {
                     if (
                             ActivityCompat.checkSelfPermission(
@@ -378,29 +384,24 @@ public class MainActivity extends AppCompatActivity {
 
         try {
             ParsedMeasurement parsedMeasurement =
-                    this.measurementParser.parse(
-                            manufacturerData
-                    );
+                    this.measurementController
+                            .processManufacturerData(
+                                    manufacturerData
+                            );
 
-            /*
-             * La lógica de actualización de las medidas
-             * se delega en el modelo.
-             */
-            this.currentMeasurement.applyMeasurement(
-                    parsedMeasurement
-            );
+            MeasurementData measurementData =
+                    this.measurementController
+                            .getMeasurementData();
 
             /*
              * Estos dos atributos se mantienen temporalmente
              * para no modificar todavía la subida a Plesk.
              */
             this.ultimoCo2 =
-                    this.currentMeasurement
-                            .getCo2Value();
+                    measurementData.getCo2Value();
 
             this.ultimaTemperatura =
-                    this.currentMeasurement
-                            .getTemperatureValue();
+                    measurementData.getTemperatureValue();
 
             Log.d(
                     ETIQUETA_LOG,
