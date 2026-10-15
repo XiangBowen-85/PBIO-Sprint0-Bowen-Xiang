@@ -36,8 +36,6 @@ public final class PleskClient {
      * En una versión posterior debería almacenarse
      * mediante un mecanismo de configuración seguro.
      */
-    private static final String API_KEY =
-            "XBW01_SPRINT0";
 
     private static final int TIMEOUT_MILLISECONDS =
             10000;
@@ -251,7 +249,7 @@ public final class PleskClient {
 
         connection.setRequestProperty(
                 "X-API-Key",
-                API_KEY
+                ApiConfig.API_KEY
         );
     }
 
