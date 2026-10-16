@@ -88,4 +88,150 @@ Parte del código inicial fue proporcionada por el profesorado. Las adaptaciones
 
 El repositorio Git se creó durante la fase final de integración y documentación del Sprint 0. El trabajo anterior se realizó mediante copias locales y entregas parciales.
 
-## 
+## Estado final del Sprint 0
+
+ 
+La versión disponible en la rama `develop` constituye la
+versión funcional preparada para la demostración del Sprint 0.
+
+ 
+
+### Flujo verificado
+
+ 
+Arduino XBW01
+|
+| BLE iBeacon
+v
+Aplicación Android
+|
+| HTTPS + JSON
+v
+Backend PHP
+|
+v
+MariaDB
+|
+v
+Página web
+
+## Funcionalidades verificadas
+
+- Arduino genera medidas simuladas de CO2 y temperatura.
+- El nodo utiliza el nombre BLE XBW01.
+- El UUID único utilizado es BOWEN-XBW01-2026.
+- Android recibe y decodifica los anuncios iBeacon.
+- Android distingue correctamente:
+  tipo 11: CO2;
+  tipo 12: temperatura.
+- Android evita mezclar datos de otros nodos del laboratorio.
+- La aplicación almacena ambas medidas en su modelo de negocio.
+- PleskClient encapsula la comunicación HTTPS.
+- El backend devuelve HTTP 201 después de una subida correcta.
+- El backend está separado en:
+  comunicación;
+  lógica de negocio;
+  acceso a base de datos.
+- MariaDB almacena CO2, temperatura, RSSI, dirección BLE, datos originales y fecha de recepción.
+- La página web muestra la última lectura almacenada.
+- La API latest.php devuelve las mediciones recientes en JSON.
+
+## Valores de la demostración
+
+- CO2: 456 ppm
+- Temperatura: -24 °C
+
+Los valores fueron modificados desde una versión anterior con 123 ppm y -12 °C. La actualización correcta en Android, MariaDB y la página web demuestra que los valores no están escritos de forma fija en la interfaz web.
+
+## Arquitectura Android
+
+MainActivity
+|
++--> MeasurementController
+| |
+| +--> IBeaconMeasurementParser
+| +--> MeasurementData
+|
++--> PleskClient
+
+### Responsabilidades principales:
+
+- MainActivity: interfaz, permisos, botones y control de escaneo.
+- MeasurementController: coordinación del estado de las medidas.
+- IBeaconMeasurementParser: validación y decodificación iBeacon.
+- MeasurementData: modelo de la medición actual.
+- PleskClient: JSON, HTTPS y respuesta del servidor.
+- UploadResult: resultado de la operación remota.
+
+## Arquitectura backend
+
+upload.php / latest.php / index.php
+|
+v
+MeasurementService
+|
+v
+MeasurementRepository
+|
+v
+Database
+|
+v
+MariaDB
+
+### Responsabilidades principales:
+
+- comunicación HTTP y presentación;
+- validación y normalización de negocio;
+- consultas y persistencia;
+- conexión PDO.
+
+## Pruebas automáticas
+
+Se añadieron siete pruebas automáticas para la lógica Android:
+
+- cinco pruebas de IBeaconMeasurementParser;
+- dos pruebas de MeasurementController.
+
+Las pruebas cubren:
+
+- CO2 positivo;
+- temperatura negativa;
+- UUID incorrecto;
+- tipo de medida desconocido;
+- trama demasiado corta;
+- estado incompleto y completo;
+- reinicio del estado.
+
+## Revisión automática
+
+El repositorio fue revisado mediante el agente Sprint Reviewer v2.
+
+El primer informe está almacenado en:
+
+- docs/agent-review/Bowen_Xiang_review.md
+
+La revisión automática se utilizó como autoevaluación complementaria. La versión funcional se mantuvo estable y no se realizaron cambios estructurales de riesgo antes de la demostración.
+
+## Estado de la demostración
+
+La siguiente secuencia ha sido comprobada:
+
+- cargar el firmware en Arduino;
+- iniciar el escaneo desde Android;
+- recibir 456 ppm y -24 °C;
+- pulsar el botón de subida;
+- recibir HTTP 201;
+- comprobar la nueva fila en MariaDB;
+- actualizar la página web;
+- comprobar la última lectura.
+
+## Página web
+
+https://bxiang.upv.edu.es/api/
+
+## Rama de demostración
+
+develop
+
+Esta rama contiene la versión utilizada para la demostración funcional del Sprint 0.
